@@ -16,9 +16,6 @@
 //------------------------------------------------------------------------------
 // Global Variables
 //------------------------------------------------------------------------------
-@class MetalView;
-MetalView* g_nsView;
-
 // Intentional breaking of encapsulation: we will not be reusing NSView or UIView.
 id<MTLDevice>               g_mtlDevice;
 id<MTLCommandQueue>         g_mtlCommandQueue;
@@ -64,18 +61,13 @@ void doRender()
   id<CAMetalDrawable> drawable = [g_nsView.metalLayer nextDrawable];
   id<MTLTexture> texture = drawable.texture;
 
-  // Assumes consistent 60Hz refresh rate. Not a great assumption.
-  // We will use mach_absolute_time for animation is later examples.
-  static float timeSeconds = 0.0;
-  timeSeconds += 0.0166;
-
   MTLRenderPassDescriptor* passDescriptor =
       [MTLRenderPassDescriptor renderPassDescriptor];
   passDescriptor.colorAttachments[0].texture     = texture;
   passDescriptor.colorAttachments[0].loadAction  = MTLLoadActionClear;
-  //passDescriptor.colorAttachments[0].storeAction = MTLStoreActionStore;
+  passDescriptor.colorAttachments[0].storeAction = MTLStoreActionStore;
   passDescriptor.colorAttachments[0].clearColor =
-      MTLClearColorMake(fmod(timeSeconds / 5.0,1.0), 0.3f, 0.3f, 1.0f);
+      MTLClearColorMake(0.3f, 0.3f, 0.3f, 1.0f);
 
   id<MTLCommandBuffer> commandBuffer = [g_mtlCommandQueue commandBuffer];
 
