@@ -19,6 +19,7 @@
 // Intentional breaking of encapsulation: we will not be reusing NSView or UIView.
 id<MTLDevice>               g_mtlDevice;
 id<MTLCommandQueue>         g_mtlCommandQueue;
+id<MTLRenderPipelineState>  g_mtlPipelineState;
 
 //------------------------------------------------------------------------------
 // Objective-C Interfaces
@@ -49,6 +50,48 @@ id<MTLCommandQueue>         g_mtlCommandQueue;
 //------------------------------------------------------------------------------
 // Implementation
 //------------------------------------------------------------------------------
+
+const char* g_shaderCode = R"D4LIN4R(
+#include <metal_stdlib>
+
+using namespace metal;
+
+struct VertexOutput
+{
+  float4 position [[position]];
+  float4 color;
+};
+
+vertex VertexOutput render_vertex(uint vid [[vertex_id]])
+{
+  VertexOutput vertexOut;
+  // Clockwise winding order
+  if (vid == 0)
+  {
+    // Middle top of screen.
+    vertexOut.position = float4(0.0, 1.0, 0.0, 1.0);
+    vertexOut.color = float4(1.0, 0.3, 0.3, 1.0);
+  }
+  else if (vid == 1)
+  {
+    // Bottom right
+    vertexOut.position = float4(1.0, -1.0, 0.0, 1.0);
+    vertexOut.color = float4(0.3, 1.0, 0.3, 1.0);
+  }
+  else if (vid == 2)
+  {
+    // Bottom left
+    vertexOut.position = float4(-1.0, -1.0, 0.0, 1.0);
+    vertexOut.color = float4(0.3, 0.3, 1.0, 1.0);
+  }
+  return vertexOut;
+}
+
+fragment float4 render_fragment(VertexOutput vertexIn [[stage_in]])
+{
+  return vertexIn.color;
+}
+)D4LIN4R";
 
 void doRender()
 {
@@ -90,11 +133,49 @@ int renderInit()
 
   g_mtlCommandQueue = [g_mtlDevice newCommandQueue];
 
+  //------------------------------------------
+  // Shader Compilation and Pipeline Creation
+  //------------------------------------------
+  NSString* source = [[NSString alloc] initWithUTF8String:g_shaderCode];
+  MTLCompileOptions* compileOpts = [[MTLCompileOptions alloc] init];
+  compileOpts.languageVersion = MTLLanguageVersion2_0;
+
+  NSError* err = nil;
+  id<MTLLibrary> library = [g_mtlDevice newLibraryWithSource:source options:compileOpts error:&err];
+
+  [compileOpts release];
+  [source release];
+
+  if (err)
+  {
+    NSLog(@"%@", err);
+    [library release];
+    return EXIT_FAILURE;
+  }
+
+  // Create pipeline state.
+  MTLRenderPipelineDescriptor* pipelineDescriptor = [MTLRenderPipelineDescriptor new];
+  pipelineDescriptor.vertexFunction = [library newFunctionWithName:@"render_vertex"];
+  pipelineDescriptor.fragmentFunction = [library newFunctionWithName:@"render_fragment"];
+
+  [library release];
+
+  pipelineDescriptor.colorAttachments[0].pixelFormat = MTLPixelFormatBGRA8Unorm;
+  pipelineDescriptor.depthAttachmentPixelFormat = MTLPixelFormatInvalid;
+
+  NSError* error = nil;
+  g_mtlPipelineState = [g_mtlDevice newRenderPipelineStateWithDescriptor:pipelineDescriptor error:&error];
+  if (!g_mtlPipelineState)
+  {
+    NSLog(@"Failed to create render pipeline state: %@", error);
+  }
+
   return EXIT_SUCCESS;
 }
 
 void renderDestroy()
 {
+  [g_mtlPipelineState release];
   [g_mtlCommandQueue release];
   [g_mtlDevice release];
 }
