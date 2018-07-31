@@ -116,6 +116,15 @@ void doRender()
 
   id<MTLRenderCommandEncoder> commandEncoder =
       [commandBuffer renderCommandEncoderWithDescriptor:passDescriptor];
+
+  [commandEncoder setFrontFacingWinding:MTLWindingClockwise];
+  [commandEncoder setCullMode:MTLCullModeNone];
+  [commandEncoder setRenderPipelineState:g_mtlPipelineState];
+
+  [commandEncoder drawPrimitives:MTLPrimitiveTypeTriangle
+                     vertexStart:0
+                     vertexCount:3];
+
   [commandEncoder endEncoding];
 
   [commandBuffer presentDrawable:drawable];
